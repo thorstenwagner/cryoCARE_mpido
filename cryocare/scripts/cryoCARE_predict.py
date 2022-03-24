@@ -24,9 +24,9 @@ def pad(volume: NDArray, div_by: Tuple) -> NDArray:
 
 
 
-def denoise(config: dict, mean: float, std: float, even: str, odd: str, output_file: str):
+def denoise(config: dict, mean: float, std: float, even: str, odd: str, output_file: str, predict_overlap: float = 1.0):
     model = CryoCARE(None, config['model_name'], basedir=config['path'])
-
+    model.predict_overlap = predict_overlap
     even = mrcfile.mmap(even, mode='r', permissive=True)
     odd = mrcfile.mmap(odd, mode='r', permissive=True)
     shape_before_pad = even.data.shape
@@ -80,6 +80,10 @@ def main():
     import os
     import tarfile
     import tempfile
+    predict_overlap = 1.0
+    if 'predict_overlap' in config:
+        predict_overlap = config['predict_overlap']
+        print("Use predict overlap of ", predict_overlap)
     if os.path.isfile(config['path']):
         with tempfile.TemporaryDirectory() as tmpdirname:
             tar = tarfile.open(config['path'], "r:gz")
@@ -104,12 +108,20 @@ def main():
 
             for even,odd in zip(all_even,all_odd):
                 out_filename = os.path.join(config['output'], os.path.basename(even))
-                denoise(config, mean, std, even=even, odd=odd, output_file=out_filename)
+                denoise(config, mean, std, even=even, odd=odd, output_file=out_filename, predict_overlap=predict_overlap)
     else:
         dm = CryoCARE_DataModule()
         dm.load(config['path'])
         mean, std = dm.train_dataset.mean, dm.train_dataset.std
-        denoise(config, mean, std, even=config['even'], odd=config['odd'], output_file=join(config['path'], config['output_name']))
+        denoise(config,
+                mean,
+                std,
+                even=config['even'],
+                odd=config['odd'],
+                output_file=join(config['path'],
+                                 config['output_name']),
+                predict_overlap=predict_overlap
+                )
 
 
 

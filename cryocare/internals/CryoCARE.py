@@ -10,6 +10,8 @@ import tensorflow as tf
 
 class CryoCARE(CARE):
 
+    predict_overlap: float = 1.0
+
     def train(self, train_dataset, val_dataset, epochs=None, steps_per_epoch=None):
         """Train the neural network with the given data.
         Parameters
@@ -160,7 +162,7 @@ class CryoCARE(CARE):
         # TODO: refactor tiling stuff to make code more readable
 
         def _total_n_tiles(n_tiles):
-            n_block_overlaps = [int(np.ceil(1. * tile_overlap / block_size)) for tile_overlap, block_size in
+            n_block_overlaps = [int(np.ceil(self.predict_overlap * tile_overlap / block_size)) for tile_overlap, block_size in
                                 zip(net_axes_in_overlaps, net_axes_in_div_by)]
             return total_n_tiles(even, n_tiles=n_tiles, block_sizes=net_axes_in_div_by,
                                  n_block_overlaps=n_block_overlaps, guarantee='size')
@@ -214,7 +216,7 @@ class CryoCARE(CARE):
                                      mean=mean, std=std,
                                      axes_in=net_axes_in, axes_out=net_axes_out,
                                      n_tiles=n_tiles, block_sizes=net_axes_in_div_by,
-                                     tile_overlaps=net_axes_in_overlaps, pbar=progress)
+                                     tile_overlaps=net_axes_in_overlaps, pbar=progress, predict_overlap=self.predict_overlap)
                 output = pred
                 # x has net_axes_out semantics
                 done = True
@@ -244,7 +246,7 @@ class CryoCARE(CARE):
 
 def predict_tiled(keras_model, even, odd, output, s_src_out, s_dst_out, mean, std, n_tiles, block_sizes, tile_overlaps,
                   axes_in,
-                  axes_out=None, pbar=None, **kwargs):
+                  axes_out=None, pbar=None, predict_overlap: float = 1.0, **kwargs):
     """TODO."""
     if all(t == 1 for t in n_tiles):
         even_pred = predict_direct(keras_model, even, mean, std, axes_in, axes_out, **kwargs)
@@ -291,7 +293,7 @@ def predict_tiled(keras_model, even, odd, output, s_src_out, s_dst_out, mean, st
 
     block_size = block_sizes[axis]
     tile_overlap = tile_overlaps[axis]
-    n_block_overlap = int(np.ceil(1. * tile_overlap / block_size))
+    n_block_overlap = int(np.ceil(predict_overlap * tile_overlap / block_size))
 
     # print(f"axis={axis},n_tiles={n_tiles[axis]},block_size={block_size},tile_overlap={tile_overlap},n_block_overlap={n_block_overlap}")
 
@@ -306,7 +308,7 @@ def predict_tiled(keras_model, even, odd, output, s_src_out, s_dst_out, mean, st
             tile_iterator_1d(output, axis=axis, n_tiles=n_tiles[axis], block_size=block_size,
                              n_block_overlap=n_block_overlap)):
         pred = predict_tiled(keras_model, even_tile, odd_tile, output_tile[s_src_out[-1]], s_src_out + [s_src], s_dst,
-                             mean, std, n_tiles_remaining, block_sizes, tile_overlaps, axes_in, axes_out, pbar=pbar,
+                             mean, std, n_tiles_remaining, block_sizes, tile_overlaps, axes_in, axes_out, pbar=pbar, predict_overlap=predict_overlap
                              **kwargs)
 
         s_dst = _to_axes_out(s_dst, slice(None))
