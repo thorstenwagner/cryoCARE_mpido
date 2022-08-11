@@ -1,3 +1,3 @@
 # cryoCARE - OUTDATED
 The changes made here were merged into the original [cryoCARE repository](https://github.com/juglab/cryoCARE_pip). 
-Please us it instead.
+Please use it instead.
